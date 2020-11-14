@@ -33,7 +33,7 @@ class Listener:
     this class provides subscribers a way to manage their own subscription
     without directly modifying the publisher
     """
-    def __init__(self, handler):
+    def __init__(self, handler = lambda x: x):
         self.listening = False
         self.destroyed = False
         self.handler = handler
@@ -45,7 +45,57 @@ class Listener:
         self.listening = False
 
     def remove(self):
+        self.listening = False
         self.destroyed = True
+
+class Publisher:
+    def __init__(self):
+        self.__subscriptions = {
+            'all': []
+        }
+    def subscribe(self, name: str, handler = lambda x: x) -> Listener:
+            """
+            subscribe to a named event, this could certainly be more robust with streams/hooks
+            """
+            if not (name in self.__subscriptions):
+                self.__subscriptions[name] = []
+            listener = Listener(handler)
+            self.__subscriptions[name].append(listener)
+            return listener
+
+    def emit(self, name = '', data = {}):
+        if name in self.__subscriptions:
+            # remove destroyed listeners
+            for subscription in self.__subscriptions.values():
+                subscription = list(filter(lambda l: not l.destroyed, subscription))
+
+            for listener in self.__subscriptions[name]:
+                if listener.listening:
+                    listener.handler(data)
+                
+            # 'all' top level subscription
+            # for listener in self.__subscriptions['all']:
+            #     if listener.listening:
+            #         listener.handler(data)
+
+    def purge(self):
+        self.__init__()
+
+
+class EventName:
+    hover = 'hover'
+    click = 'click'
+
+class Events:
+    def __init__(self, publisher: Publisher):
+        self.publisher = publisher
+
+    def process(self):
+        for event in pygame.event.get():
+            self.publisher.emit(event.type, event)
+
+
+        
 
 
 def mutator(state: object, data: object = {}):
@@ -59,9 +109,7 @@ def mutator(state: object, data: object = {}):
 class State:
     def __init__(self, initialState = initialState, actions: [Action] = []):
         self.__state = initialState
-        self.__subscriptions = {
-            'all': []
-        }
+        
         self.__actions = {}
         for action in actions:
             self.__actions[action.name] = action
@@ -98,16 +146,6 @@ class State:
         if target:
             target[keys[-1]] = value
 
-    def subscribe(self, name: str, handler):
-        """
-        subscribe to a named event, this could certainly be more robust with streams/hooks
-        """
-        if not (name in self.__subscriptions):
-            self.__subscriptions[name] = []
-        listener = Listener(handler)
-        self.__subscriptions[name].append(listener)
-        return listener
-
     def dispatch(self, name: str, data = {}):
         """
         dispatch a named action with the provided data, does nothing if the action does not exist
@@ -117,20 +155,14 @@ class State:
         if name in self.__actions:
             action = self.__actions[name]
             new_state = action.apply(self.__state, data)
+            # if new state is the same as the old state, do nothing (don't trigger update)
+            # also if an action returns None, do nothing and dont check if anything has changed
+            if(self.get(action.scope) == new_state): return
             self.__set(action.scope, new_state)
 
-            if name in self.__subscriptions:
-                self.__subscriptions = [
-                    listener for listener in self.__subscriptions[name]
-                    if not listener.destroyed
-                ]
-                for listener in self.__subscriptions[name]:
-                    if listener.listening:
-                        listener.handler()
-                # 'all' top level subscription
-                for listener in self.__subscriptions['all']:
-                    if listener.listening:
-                        listener.handler()
+            
+
+    
 
     def register(self, name: str, mutator: mutator = mutator, scope: str = ''):
         """
@@ -155,17 +187,28 @@ class Game:
         self.state = state
         pygame.init()
         window = state.get('window')
+        self.running = True
         self.screen = pygame.display.set_mode((window['width'], window['height']))
+        self.updated = False
 
         #this could obviously be more efficient
-        state.subscribe('all', self.draw)
+        # state.subscribe('all', self.draw)
 
     def draw(self):
         pygame.display.update()
         pygame.display.flip()
 
     def update(self):
+        if not self.should_update(): return
         self.draw()
+
+    def should_update(self):
+        return not self.updated
+
+
+
+
+
 
         
     

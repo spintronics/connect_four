@@ -1,11 +1,14 @@
 import pygame
 from pygame.locals import *
 import math
+from game import Events, EventName
 
 ComponentContext = {
     'screen': {},
     'position': (0,0)
 }
+
+
 
 class Component:
     name = 'Component'
@@ -16,12 +19,16 @@ class Component:
     def __init__(
         self, children = [], context = ComponentContext,
         width = 0, height = 0, margin = 0, padding = 0,
-        position = [0,0], name = '', ref = None
+        position = [0,0], name = '', ref = None, expanded = False,
+        absolute = False
     ):
         """
         component context will not be delegated to children until after it's parent
         is initialized. so don't use context variables in init of children classes
         """
+        self._absolute = False
+        self._explicit_width = width
+        self._explicit_height = height
         self.context = context
         self.children = children
         self.width = width
@@ -29,13 +36,35 @@ class Component:
         self.margin = margin
         self.padding = padding
         self.position = position
+        self.expanded = expanded
         self._name = f'{self.name}({name})'
 
+
+
         if ref:
-            ref.set(self)
+            ref(self)
 
-            
+    def set_height(self, height = 0):
+        """
+        explicitly set height in component props overrides and assignment (from parent)
+        """
+        self.height = self._explicit_height or height
 
+    def set_width(self, width = 0):
+        self.width = self._explicit_width or width
+
+    def set_position(self, position = [0,0]):
+        if not self._absolute:
+            self.position = position
+
+
+    def get_rect(self) -> pygame.Rect:
+        return pygame.Rect(
+            self.position[0],
+            self.position[1],
+            self.width,
+            self.height
+        )
 
     def resize_children(self):
         """
@@ -45,9 +74,10 @@ class Component:
 
         """
         for child in self.children:
-            child.height = self.height
-            child.width = self.width
-            child.position = self.position.copy()
+            if not child: continue
+            child.set_height(self.height)
+            child.set_width(self.width)
+            child.set_position(self.position.copy())
             if self.padding:
                 child.height -= self.padding * 2
                 child.width -= self.padding * 2
@@ -57,21 +87,23 @@ class Component:
         
         return self
 
-    def _propagate_context(self):
+    def propagate_context(self):
         """
         pass the context down recursively to children unless another context barrier is reached
         potentially extend with the new context if possible
         """
         for child in self.children:
+            if not child: continue
             if not isinstance(child, ContextProvider):
                 child.context = self.context
-                child._propagate_context()
+                child.propagate_context()
 
     
 
     def draw_children(self):
         if self.children:
             for child in self.children:
+                if not child: continue
                 child.draw()
 
 
@@ -83,7 +115,7 @@ class ContextProvider(Component):
     name = 'ContextProvider'
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self._propagate_context()
+        self.propagate_context()
 
 class Image(Component):
     name = 'Image'
@@ -123,24 +155,28 @@ class Row(Component):
 
     def draw(self):
         offset = 0
-        direction_length = self.width if self.direction == 'right' else self.height
+        direction = 'width' if self.direction == 'right' else 'height'
+        direction_length = getattr(self, direction)
         adjusted_length = direction_length - self.gutter * (len(self.children) - 1)
         child_length = adjusted_length / len(self.children)
 
         for child in self.children:
-            if self.direction == 'right':
-                child.height = self.height
-                child.width = child_length
-            else:
-                child.width = self.width
-                child.height = child_length
+            # empty children are skipped but still take up space
+            if child:
+                if self.direction == 'right':
+                    child.set_height(self.height)
+                    child.set_width(child_length)
+                else:
+                    child.set_width(self.width)
+                    child.set_height(child_length)
 
-            child.position = (
-                self.position[0] + (offset if self.direction == 'right' else 0),
-                self.position[1] + (offset if self.direction == 'down' else 0)
-            )
+                child.position = [
+                    self.position[0] + (offset if self.direction == 'right' else 0),
+                    self.position[1] + (offset if self.direction == 'down' else 0)
+                ]
 
-            child.draw()
+                child.resize_children()
+                child.draw()
 
             offset += child_length + self.gutter
 
@@ -153,13 +189,127 @@ class Column(Row):
         self.direction = 'down'
 
 
-# unsized items share the remaining space
-# class Expanded(Row):
-#     name = 'Expanded'
-#     def draw(self):
-#         direction_length = self.width if self.direction == 'right' else self.height
-#         adjusted_length = direction_length - self.gutter * (len(self.children) - 1)
+class Wrapper(Component):
+    def __init__(self, component: Component = None):
+        super().__init__()
+        self.children = [component]
 
+
+def handler(event): pass
+
+def with_events(
+    component, event_stream: Events = None, name = '',
+    **kwargs
+):
+    class WithEvents(Wrapper):
+        def __init__(self, component = component, event_stream = event_stream, **kwargs):
+            super().__init__(component)
+            self.name = f'WithEvents({name})'
+            self.event_stream = event_stream
+            self.events = kwargs
+            self.listeners = {}
+            self.bind_events()
+
+        def bind_events(self):
+
+            # wrap handlers with pygame event logic and bind
+            # need to implement a way to destroy these listeners on cleanup
+            for name, handler in self.events.items():
+                if name.startswith('on_'):
+                    name = name.split('_')[1]
+                    if name == EventName.hover:
+                        self.listeners[name] = self.event_stream.publisher.subscribe(pygame.MOUSEMOTION, self.hover(handler))
+
+            for listener in self.listeners.values():
+                listener.on()
+
+
+            
+                    
+        def hover(self, handler):
+            def listener(event):
+                if self.get_rect().collidepoint(pygame.mouse.get_pos()):
+                    return handler(event, self)
+            
+            return listener
+
+
+        def get_rect(self) -> pygame.Rect:
+            return pygame.Rect(
+                self.position[0],
+                self.position[1],
+                self.width,
+                self.height
+            )
+    
+    return WithEvents(component, event_stream, **kwargs)
+
+
+
+
+
+
+# unsized items share the remaining space
+class Expanded(Row):
+    name = 'Expanded'
+    def draw(self):
+        direction = 'width' if self.direction == 'right' else 'height'
+        direction_length = getattr(self, direction)
+        adjusted_length = direction_length - self.gutter * (len(self.children) - 1)
+
+        #use some other method to detect the sized children
+        sized_children = []
+        unsized_children = []
+
+        for child in self.children:
+            if child.expanded:
+                unsized_children.append(child)
+            else:
+                sized_children.append(child)
+
+        #implement percentages
+        #catch the case where children are larger than parent
+        remaining_space = adjusted_length - sum([getattr(c, direction) for c in sized_children])
+
+        expanded_children_length = remaining_space / len(unsized_children)
+
+        for child in unsized_children:
+            if child:
+                if self.direction == 'right':
+                    child.set_width(expanded_children_length)
+                else:
+                    child.set_height(expanded_children_length)
+
+        offset = 0
+
+        for child in self.children:
+            if child:
+                if self.direction == 'right':
+                    child.set_height(self.height)
+                else:
+                    child.set_width(self.width)
+
+                child.position = [
+                    self.position[0] + (offset if self.direction == 'right' else 0),
+                    self.position[1] + (offset if self.direction == 'down' else 0)
+                ]
+
+                child.resize_children()
+                child.draw()
+
+            offset += getattr(child, direction) + self.gutter
+
+
+        
+class Rectangle(Component):
+    def __init__(self, color = (0,0,0), **kwargs):
+        super().__init__(**kwargs)
+        self.color = color
+
+    def draw(self):
+        pygame.draw.rect(self.context['screen'], self.color, self.get_rect())
+        super().draw()
+        return self
 
 
 

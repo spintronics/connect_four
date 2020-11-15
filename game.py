@@ -24,7 +24,7 @@ class Action:
         self.name = name
         self.scope = scope
 
-    def apply(self, state: object, data = {}):
+    def apply(self, state: object = {}, data = {}):
         return self.__mutator(state, data)
 
 
@@ -51,7 +51,7 @@ class Listener:
 class Publisher:
     def __init__(self):
         self.__subscriptions = {
-            'all': []
+            'change:state': []
         }
     def subscribe(self, name: str, handler = lambda x: x) -> Listener:
             """
@@ -78,39 +78,24 @@ class Publisher:
             #     if listener.listening:
             #         listener.handler(data)
 
-    def purge(self):
-        self.__init__()
+    def purge(self, names = []):
+        for name in names:
+            if name in self.__subscriptions:
+                del self.__subscriptions[name]
 
 
-class EventName:
-    hover = 'hover'
-    click = 'click'
 
-class Events:
-    def __init__(self, publisher: Publisher):
-        self.publisher = publisher
-
-    def process(self):
-        for event in pygame.event.get():
-            self.publisher.emit(event.type, event)
 
 
         
-
-
-def mutator(state: object, data: object = {}):
-    """
-    return a new object if possible
-    """
-    return state
 
     
 
 class State:
-    def __init__(self, initialState = initialState, actions: [Action] = []):
+    def __init__(self, initialState = initialState, publisher:Publisher = {}, actions = {}):
         self.__state = initialState
-        
         self.__actions = {}
+        self.publisher = publisher
         for action in actions:
             self.__actions[action.name] = action
     
@@ -157,14 +142,16 @@ class State:
             new_state = action.apply(self.__state, data)
             # if new state is the same as the old state, do nothing (don't trigger update)
             # also if an action returns None, do nothing and dont check if anything has changed
-            if(self.get(action.scope) == new_state): return
+            if(action.scope and self.get(action.scope) == new_state): return
             self.__set(action.scope, new_state)
+            self.publisher.emit('change:state', {'scope': action.scope})
+
 
             
 
     
 
-    def register(self, name: str, mutator: mutator = mutator, scope: str = ''):
+    def register(self, name: str, mutator = lambda x, y: x, scope: str = ''):
         """
         register a named action so that the model knows how to update
         this could be wrapped in a model class but that's unecessary complexity atm
@@ -176,23 +163,27 @@ class State:
         return self.__state
 
     
-
-        
-    
-            
+class EventName:
+    hover = 'hover'
+    click = 'click'
 
 
 class Game:
-    def __init__(self, state: State):
+    """
+    base class to interface with pygame and manage the game lifecycle
+    """
+    def __init__(self, state: State, publisher: Publisher):
         self.state = state
         pygame.init()
         window = state.get('window')
+        self.publisher = publisher
         self.running = True
         self.screen = pygame.display.set_mode((window['width'], window['height']))
         self.updated = False
 
         #this could obviously be more efficient
-        # state.subscribe('all', self.draw)
+        self.state_change_listener = publisher.subscribe('change:state', lambda scope: self.update())
+        self.state_change_listener.on()
 
     def draw(self):
         pygame.display.update()
@@ -202,8 +193,12 @@ class Game:
         if not self.should_update(): return
         self.draw()
 
+    def consume_events(self):
+        for event in pygame.event.get():
+            self.publisher.emit(event.type, event)
+
     def should_update(self):
-        return not self.updated
+        return True
 
 
 

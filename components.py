@@ -1,7 +1,8 @@
 import pygame
 from pygame.locals import *
 import math
-from game import Events, EventName
+from game import EventName, Publisher
+from threading import Timer
 
 ComponentContext = {
     'screen': {},
@@ -195,19 +196,22 @@ class Wrapper(Component):
         self.children = [component]
 
 
-def handler(event): pass
+
+        
+
 
 def with_events(
-    component, event_stream: Events = None, name = '',
+    component, name = '', publisher = {},
     **kwargs
 ):
     class WithEvents(Wrapper):
-        def __init__(self, component = component, event_stream = event_stream, **kwargs):
+        def __init__(self, component = component, publisher: Publisher = {}, id=0, **kwargs):
             super().__init__(component)
             self.name = f'WithEvents({name})'
-            self.event_stream = event_stream
             self.events = kwargs
+            self.publisher = publisher
             self.listeners = {}
+            self.id = id
             self.bind_events()
 
         def bind_events(self):
@@ -218,14 +222,23 @@ def with_events(
                 if name.startswith('on_'):
                     name = name.split('_')[1]
                     if name == EventName.hover:
-                        self.listeners[name] = self.event_stream.publisher.subscribe(pygame.MOUSEMOTION, self.hover(handler))
+                        self.listeners[name] = self.publisher.subscribe(pygame.MOUSEMOTION, self.hover(handler))
+
+                    if name == EventName.click:
+                        self.listeners[name] = self.publisher.subscribe(pygame.MOUSEBUTTONUP, self.click(handler))
 
             for listener in self.listeners.values():
                 listener.on()
 
 
             
-                    
+        def click(self, handler):
+            def listener(event):
+                if self.get_rect().collidepoint(pygame.mouse.get_pos()):
+                    return handler(event, self)
+            return listener
+
+
         def hover(self, handler):
             def listener(event):
                 if self.get_rect().collidepoint(pygame.mouse.get_pos()):
@@ -242,7 +255,7 @@ def with_events(
                 self.height
             )
     
-    return WithEvents(component, event_stream, **kwargs)
+    return WithEvents(component, publisher, **kwargs)
 
 
 
@@ -300,17 +313,39 @@ class Expanded(Row):
             offset += getattr(child, direction) + self.gutter
 
 
-        
-class Rectangle(Component):
+
+class Shape(Component):
     def __init__(self, color = (0,0,0), **kwargs):
         super().__init__(**kwargs)
         self.color = color
 
+        
+class Rectangle(Shape):
     def draw(self):
         pygame.draw.rect(self.context['screen'], self.color, self.get_rect())
+        # calling this so that children get drawn
         super().draw()
         return self
 
+class Ellipse(Shape):
+    def __init__(self, radius = 0, **kwargs):
+        super().__init__(**kwargs)
+    
+    def draw(self):
+        pygame.draw.ellipse(self.context['screen'], self.color, self.get_rect())
+        super().draw()
+        return self
+
+class Circle(Shape):
+    def __init__(self, radius=0, **kwargs):
+        super().__init__(**kwargs)
+        self.radius = radius
+
+    def draw(self):
+        rect = self.get_rect()
+        pygame.draw.circle(self.context['screen'], self.color, rect.center, rect.width / 2)
+        super().draw()
+        return self
 
 
         

@@ -9,3 +9,6 @@ python connect_four.py
 todo:
 - move more stuff to logic so that it can be shared between the client and server
 - get a request handler for the client and make the state support async actions
+
+
+- make a presentation that includes the libraries used and design approach

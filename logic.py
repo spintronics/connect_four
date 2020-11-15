@@ -1,3 +1,4 @@
+from functools import partial
 # {
 #     board: [[]],
 #     turn: 1,
@@ -14,6 +15,56 @@ def transpose(board):
 
 def flip(board):
     return [row[::-1] for row in board]
+
+def drop_piece(player, column, board):
+    columns = transpose(board)
+    flipped = flip(columns)
+
+    for dex, cell in enumerate(flipped[column]):
+        if cell == 0:
+            flipped[column][dex] = player
+            break
+    return transpose(flip(flipped))
+
+def pipe(*fns):
+    def inner(value):
+        for f in fns:
+            value = f(value)
+        return value
+    return inner
+
+def test_drop_piece():
+    start, end = [
+        [
+            [0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0],
+        ],
+        [
+            [0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 2],
+            [0, 2, 1, 2, 1, 0, 1],
+        ]
+    ]
+    result = pipe(
+        partial(drop_piece, 1, 2),
+        partial(drop_piece, 2, 1),
+        partial(drop_piece, 2, 3),
+        partial(drop_piece, 1, 4),
+        partial(drop_piece, 1, 6),
+        partial(drop_piece, 2, 6),
+    )(start)
+    if str(result) != str(end):
+        print(f'expected {end} to equal {result}')
+        return False
+    return True
+    
 
 
 def horizontals(board, move):
@@ -90,7 +141,7 @@ def do_move(board, column, player):
     return board
 
 
-def valid_move(board, move, player):
+def valid_move(player, column, board):
     """
     returns a boolean that indicates whether the given column is full
     or the move is outside the game board
@@ -98,8 +149,15 @@ def valid_move(board, move, player):
     return True
 
 
-# def main():
-#     while True:
-#         move = input()
-#         state = do_move(state)
-#         check_win(move)
+tests = [
+    test_drop_piece
+]
+
+fails = 0
+for test in tests:
+    if not test():
+        fails += 1
+if fails:
+    print(f'{fails} out of {len(tests)} failed')
+else:
+    print('all tests passed')

@@ -69,14 +69,7 @@ class ConnectFourActions:
         board = state['game']['board']
         player = state['game']['player_turn']
         if not logic.valid_move(board, column.id, player): return None
-        columns = logic.transpose(board)
-        flipped = logic.flip(columns)
-
-        for dex, cell in enumerate(flipped[column.id]):
-            if cell == 0:
-                flipped[column.id][dex] = player
-                break
-        state['game']['board'] = logic.transpose(logic.flip(flipped))
+        state['game']['board'] = logic.drop_piece(player, column.id, board)
         state['game']['player_turn'] = 1 if player == 2 else 2
 
         return state

@@ -2,6 +2,7 @@ import pygame, sys
 from pygame.locals import *
 from os import path
 import math
+import util
 
 
 initialState = {
@@ -100,21 +101,7 @@ class State:
             self.__actions[action.name] = action
     
     def get(self, path: str):
-        """
-        . seperated lensing
-        state.get('a.b.c') = state.__state['a']['b']['c']
-        will retrun None if a key is encountered that doesn't exist
-        """
-        keys = [key for key in path.split('.') if key]
-        target = self.__state
-        for key in keys:
-            # this doesn't accomodate lists
-            if key in target:
-                target = target[key]
-            else:
-                target = None
-                break
-        return target
+        return util.get(path, self.__state)
 
     def __set(self, path: str, value):
         keys = [key for key in path.split('.') if key]

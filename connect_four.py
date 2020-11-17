@@ -4,6 +4,11 @@ from os import path
 from game import *
 from components import *
 import logic
+import util
+from server import ResponseCodes, Routes
+import uuid
+import copy
+import ai
 
 current_directory = path.abspath(path.dirname(__file__))
 
@@ -12,10 +17,9 @@ def asset_path(file): return path.join(current_directory, file)
 class Assets:
     #did realize i mispelled peice at some point, but we've come too far
     # board = asset_path('assets\\connect_four_blank.png')
-    board = asset_path('assets\\connect_four_blank_filled.png')
-    red_peice = asset_path('assets\\red_peice.png')
-    yellow_peice = asset_path('assets\\yellow_peice.png')
-    black_peice = asset_path('assets\\black_peice.png')
+    new_game_button = asset_path('assets\\new_game_button.png')
+    computer_button = asset_path('assets\\computer_button.png')
+    two_player_button = asset_path('assets\\2_player_button.png')
 
 
 
@@ -24,9 +28,10 @@ initial_state = {
         'width': 900,
         'height': 1000
     },
-    'background_color': (255,255,255),
+    # 'background_color': (166,117,161),
+    'background_color': (225,216,159),
     'game': {
-        'board_color': [0,3,128],
+        'board_color': [0,3,123],
         'player_1_color': [113,20,17],
         'player_2_color': [255,242,0],
         'empty_color': [0,0,0],
@@ -42,9 +47,18 @@ initial_state = {
             [0,0,0,0,0,0,0],
         ],
         'winner': 0,
-        'active_column': 0
+        'active_column': 0,
+        'remote': False,
+        'user_id': uuid.uuid1(),
+        '2_player_game': True,
+        'game_started': False,
+        'controls_state': 0,
+        'controls_focused': False
     }
 }
+
+class ControlState:
+    new_game, select_mode = range(2)
 
 def prop(value = None):
     def access(new):
@@ -56,27 +70,72 @@ def prop(value = None):
 class ActionNames:
     change_active_column = 'change:active_column'
     drop_piece = 'action:drop_piece'
+    update_board = 'change:board'
+    joined_game = 'action:joined_game'
+    left_game = 'action:left_game'
+    focus_controls = 'change:controls_focused'
+    new_game = 'change:game_started'
+    set_game_mode = 'change:2_player_game'
+
 
 class ConnectFourActions:
+    """
+    these functions define how the state changes
+    """
     @classmethod
     def change_active_column(Self, state, column):
         #fine because assigning a literal
-        state['game']['active_column'] = column.id
+        util.path_set('game.active_column', column, state)
+        util.path_set('game.controls_focused', False, state)
         return state
 
     @classmethod
     def drop_piece(Self, state, column):
-        board = state['game']['board']
-        player = state['game']['player_turn']
-        if not logic.valid_move(board, column.id, player): return None
-        state['game']['board'] = logic.drop_piece(player, column.id, board)
-        state['game']['player_turn'] = 1 if player == 2 else 2
+        if not util.get('game.game_started', state): return state
 
+        board = util.get('game.board', state)
+        player = util.get('game.player_turn', state)
+        if not logic.valid_move(board, column, player): return None
+        util.path_set('game.board', logic.drop_piece(player, column, board), state)
+        util.path_set('game.player_turn', 1 if player == 2 else 2, state)
+
+        new_board = util.get('game.board', state)
+        winner = logic.check_win(new_board)
+        if winner:
+            util.path_set('game.winner', winner, state)
+            util.path_set('game.game_started', False, state)
+
+        if not util.get('game.2_player_game', state) and util.get('game.player_turn', state) == 2:
+            move = ai.generate_move(new_board)
+            Self.drop_piece(state, move)
+
+
+        return state
+
+    @classmethod
+    def focus_controls(Self, state, _):
+        util.path_set('game.controls_focused', True, state)
+        return state
+
+    @classmethod
+    def new_game(Self, state, _):
+        util.path_set('game.board', util.get('game.board', initial_state), state)
+        util.path_set('game.player_turn', 1, state)
+        util.path_set('game.controls_state', 1, state)
+        util.path_set('game.game_started', False, state)
+
+        return state
+
+    @classmethod
+    def set_game_mode(self, state, two_player):
+        util.path_set('game.2_player_game', two_player, state)
+        util.path_set('game.controls_state', 0, state)
+        util.path_set('game.game_started', True, state)
         return state
 
 
 class ConnectFour(Game):
-    def __init__(self, state, publisher):
+    def __init__(self, state, publisher, async_pool):
         super().__init__(state, publisher)
         self.refs = {
             'piece_grid': prop()
@@ -84,6 +143,9 @@ class ConnectFour(Game):
 
         self.piece_colors = [self.state.get('game.empty_color'), self.state.get(
             'game.player_1_color'), self.state.get('game.player_2_color')]
+
+        # self.async_pool = async_pool
+        # self.remote_game = True
 
 
         state.register(
@@ -94,7 +156,25 @@ class ConnectFour(Game):
             ActionNames.drop_piece,
             ConnectFourActions.drop_piece
         )
+        state.register(
+            ActionNames.focus_controls,
+            ConnectFourActions.focus_controls
+        )
+        state.register(
+            ActionNames.new_game,
+            ConnectFourActions.new_game
+        )
+        state.register(
+            ActionNames.set_game_mode,
+            ConnectFourActions.set_game_mode
+        )
 
+        # if self.state.get('game.remote'):
+        #     self.new_remote_game()
+
+    # def new_remote_game(self):
+    #     user_id = self.state.get('game.user_id')
+    #     self.async_pool.request(Routes.new_game, {'user_id': user_id})
 
     def win_condition(self):
         return False
@@ -113,9 +193,8 @@ class ConnectFour(Game):
                         # color=(0,0,index * 35)
                     ),
                     publisher = self.publisher,
-                    id = index,
-                    on_hover = lambda e, c: self.state.dispatch(ActionNames.change_active_column, c),
-                    on_click = lambda e, c: self.state.dispatch(ActionNames.drop_piece, c)
+                    on_hover = lambda e, c, column=index: self.state.dispatch(ActionNames.change_active_column, column),
+                    on_click = lambda e, c, column=index: self.state.dispatch(ActionNames.drop_piece, column)
                 ) for index, row in enumerate(board[0])
             ]
         )
@@ -138,7 +217,6 @@ class ConnectFour(Game):
             'spacing': spacing,
             'width': dimension
         }
-
 
     def game_board(self):
         board = self.state.get('game.board')
@@ -181,9 +259,7 @@ class ConnectFour(Game):
         scaled_x = self.state.get('window.width') * .1 / len(board)
 
         return (scaled_x, y * scaled_x / x)
-
-
-        
+  
     def next_piece(self):
         active_column = self.state.get('game.active_column')
         board = self.state.get('game.board')
@@ -191,12 +267,20 @@ class ConnectFour(Game):
         padding = self.state.get('game.board_padding')
         children = [False] * len(board[0])
         current_player = self.state.get('game.player_turn')
+        computer_game = self.state.get('game.2_player_game') == False
+
+        if current_player == 2 and computer_game: return
 
         children[active_column] = Circle(
             radius=dimensions['radius'],
             color=self.piece_colors[current_player],
             name="next_piece"
         )
+
+        # only show piece when appropriate (game is running, controls not hovered)
+        if self.state.get('game.controls_focused'): return None
+        if not self.state.get('game.game_started'): return None
+
         return Component(
             padding=padding,
             children=[
@@ -207,6 +291,38 @@ class ConnectFour(Game):
                     children=children
                 )
             ]
+        )
+
+    def game_controls(self):
+        controls_state = self.state.get('game.controls_state')
+        
+        buttons = [
+            [
+                with_events(
+                    Image(Assets.new_game_button, centered=True),
+                    publisher = self.publisher,
+                    on_click = lambda x,c: self.state.dispatch(ActionNames.new_game, None)
+                )
+            ],
+            [
+                with_events(
+                    Image(Assets.two_player_button, centered=True),
+                    publisher = self.publisher,
+                    on_click = lambda x,c: self.state.dispatch(ActionNames.set_game_mode, True)
+                ),
+                with_events(
+                    Image(Assets.computer_button, centered=True),
+                    publisher = self.publisher,
+                    on_click = lambda x,c: self.state.dispatch(ActionNames.set_game_mode, False)
+                )
+            ]
+        ][controls_state]
+        return with_events(
+            Row(
+                children = [Component(children=[button]) for button in buttons]
+            ),
+            publisher=self.publisher,
+            on_hover = lambda e, c: self.state.dispatch(ActionNames.focus_controls, None)
         )
 
     def draw(self):
@@ -229,9 +345,10 @@ class ConnectFour(Game):
                         Rectangle(
                             name="controls",
                             expanded = True,
-                            color=(255,255,255),
+                            color=self.state.get('background_color'),
                             children=[
-                                self.next_piece()
+                                self.game_controls(),
+                                self.next_piece(),
                             ]
                         ),
                         Component(
@@ -254,13 +371,66 @@ class ConnectFour(Game):
 
     
 
+class ExternalActions:
+    """
+    define how server data changes the game state in these actions
+    """
+    @classmethod
+    def update_board(Self, state, board):
+        # server is always right, copy the data because it is a non-primitive
+        if not board: return None
+        copy = [row.copy() for row in board]
+        state['game']['board'] = copy
+        return state
+
+    @classmethod
+    def joined_game(Self, state, game_id):
+        if not game_id: return None
+        state['game']['id'] = game_id
+        return state
+
+    @classmethod
+    def left_game(Self, state, _):
+        state['game']['id'] = -1
+        return state
+
+
+    
+
 
 publisher = Publisher()
-state = State(initial_state, publisher)
-game = ConnectFour(state, publisher)
+
+# register external external actions and create the state
+# actions = [
+#     Action(ActionNames.update_board, ExternalActions.update_board),
+#     Action(ActionNames.joined_game, ExternalActions.joined_game),
+#     Action(ActionNames.left_game, ExternalActions.left_game),
+# ]
+state = State(copy.deepcopy(initial_state), publisher)
+
+async_pool = util.AsyncRequestPool()
+game = ConnectFour(state, publisher, async_pool)
+
+# async_pool.request(Routes.new_game, {'user_id': ConnectFourActions.user_id})
+
+# ConnectFourActions.async_pool = async_pool
+
 game.draw()
 
+# dispatch external actions when responses are received
+# def handle_responses(responses):
+#     # handle errors
+#     for response in responses:
+#         if response['url'] == Routes.new_game:
+#             state.dispatch(ActionNames.joined_game, util.get('data.game_id', response))
+#         if response['url'] == Routes.join_game:
+#             state.dispatch(ActionNames.joined_game, util.get('data.game_id', response))
+#         if response['url'] == Routes.check:
+#             state.dispatch(ActionNames.update_board, util.get('data', response))
+
+
+
 while game.running:
-    # game.update()
+    # handle_responses(async_pool.drain())
     game.consume_events()
     pygame.time.wait(20)

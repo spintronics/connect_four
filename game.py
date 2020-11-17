@@ -104,19 +104,10 @@ class State:
         return util.get(path, self.__state)
 
     def __set(self, path: str, value):
-        keys = [key for key in path.split('.') if key]
-        if not (len(keys)):
+        if path == '':
             self.__state = value
             return
-        target = self.__state
-        for key in keys[:-1]:
-            if key in target:
-                target = target[key]
-            else:
-                target = None
-                break
-        if target:
-            target[keys[-1]] = value
+        util.path_set(path, value, self.__state)
 
     def dispatch(self, name: str, data = {}):
         """
@@ -127,6 +118,7 @@ class State:
         if name in self.__actions:
             action = self.__actions[name]
             new_state = action.apply(self.__state, data)
+            if new_state == None: return
             # if new state is the same as the old state, do nothing (don't trigger update)
             # also if an action returns None, do nothing and dont check if anything has changed
             if(action.scope and self.get(action.scope) == new_state): return

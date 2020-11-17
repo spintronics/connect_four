@@ -125,7 +125,10 @@ def join(body):
     game.state[GameProps.player_2_id] = body[Params.user_id]
 
     return {
-        'code': ResponseCodes.success
+        'code': ResponseCodes.success,
+        'data': {
+            'game_id': body[Params.game_id]
+        }
     }
 
 @app.route('/move', methods=['POST'])

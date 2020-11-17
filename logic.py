@@ -125,20 +125,13 @@ def connect_four(possibility):
     pass
 
 
-def check_win(board, move):
+def check_win(board):
     """
     checks whether the last piece caused a move
     compile the list of horizonal/vertical/diagonal moves
     returns the winning player number or 0 if no winner
     """
-    pass
-
-
-def do_move(board, column, player):
-    """
-    update the board with the new piece dropped into the appropriate column
-    """
-    return board
+    return False
 
 
 def valid_move(player, column, board):
@@ -153,11 +146,12 @@ tests = [
     test_drop_piece
 ]
 
-fails = 0
-for test in tests:
-    if not test():
-        fails += 1
-if fails:
-    print(f'{fails} out of {len(tests)} failed')
-else:
-    print('all tests passed')
+if __name__ == "__main__":
+    fails = 0
+    for test in tests:
+        if not test():
+            fails += 1
+    if fails:
+        print(f'{fails} out of {len(tests)} failed')
+    else:
+        print('all tests passed')

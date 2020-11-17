@@ -20,6 +20,20 @@ def get(path = '', dictionary = {}):
             break
     return target
 
+def path_set(path, value, dictionary):
+    keys = [key for key in path.split('.') if key]
+    if not (len(keys)):
+        return
+    target = dictionary
+    for key in keys[:-1]:
+        if key in target:
+            target = target[key]
+        else:
+            target = None
+            break
+    if target:
+        target[keys[-1]] = value
+
 
 class AsyncRequestPool:
     def __init__(self, host='http://127.0.0.1:5000'):
@@ -30,9 +44,17 @@ class AsyncRequestPool:
     def __request(self, url, data, handler = lambda x: x):
         try:
             response = requests.post(self.host + url, json=data)
-            return [response.json(), handler]
+            return {
+                'data': response.json(),
+                'url': url,
+                'handler': handler,
+            }
         except Exception as e:
-            return [{'code': ResponseCodes.error, 'data': str(e)}, handler]
+            return {
+                'url': url,
+                'handler': handler,
+                'data': {'code': ResponseCodes.error, 'data': str(e)},
+            }
 
     def request(self, url, data, handler = lambda x: x):
         self.queue.append(self.executor.submit(self.__request, url, data, handler))
@@ -48,8 +70,8 @@ class AsyncRequestPool:
                     not_done.append(request)
             self.queue = not_done
 
-            for response, handler in done:
-                handler(response)
+            for response in done:
+                response['handler'](response['data'])
 
             return done
 
@@ -59,3 +81,4 @@ class AsyncRequestPool:
 
     def shutdown(self):
         self.executor.shutdown()
+

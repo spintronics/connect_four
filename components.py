@@ -21,7 +21,7 @@ class Component:
         self, children = [], context = ComponentContext,
         width = 0, height = 0, margin = 0, padding = 0,
         position = [0,0], name = '', ref = None, expanded = False,
-        absolute = False
+        absolute = False, centered = False
     ):
         """
         component context will not be delegated to children until after it's parent
@@ -39,11 +39,11 @@ class Component:
         self.position = position
         self.expanded = expanded
         self._name = f'{self.name}({name})'
+        self.centered = centered
 
 
-
-        if ref:
-            ref(self)
+        # if ref:
+        #     ref(self)
 
     def set_height(self, height = 0):
         """
@@ -84,6 +84,13 @@ class Component:
                 child.width -= self.padding * 2
                 child.position[0] += self.padding
                 child.position[1] += self.padding
+
+            if child.centered:
+                y = self.height / 2 - child.height / 2 + self.position[1]
+                x = self.width / 2 - child.width / 2 + self.position[0]
+                child.set_position((x, y))
+
+
             child.resize_children()
         
         return self
@@ -123,23 +130,29 @@ class Image(Component):
     image_cache = {}
 
     def __init__(self, file: str = '', **kwargs):
-        super().__init__(**kwargs)
-
         if not(file in self.image_cache):
             self.image_cache[file] = pygame.image.load(file)
 
         self.image = self.image_cache[file]
         self.boundary = self.image.get_rect()
+        
+        #set height/width exlicitly.. image should control its dimensions and not expand
+        super().__init__(**{
+            'height': self.boundary.height,
+            'width': self.boundary.width,
+            **kwargs
+        })
+
 
     def draw(self):
-        scaled_image = pygame.transform.scale(
-            self.image,
-            (
-                math.floor(self.width),
-                math.floor(self.height)
-            )
-        )
-        self.context['screen'].blit(scaled_image, dest = self.position)
+        # scaled_image = pygame.transform.scale(
+        #     self.image,
+        #     (
+        #         math.floor(self.width),
+        #         math.floor(self.height)
+        #     )
+        # )
+        self.context['screen'].blit(self.image, dest = self.position)
         return self
 
         
@@ -201,13 +214,13 @@ class Wrapper(Component):
 
 
 def with_events(
-    component, name = '', publisher = {},
+    component, publisher = {},
     **kwargs
 ):
     class WithEvents(Wrapper):
         def __init__(self, component = component, publisher: Publisher = {}, id=0, **kwargs):
             super().__init__(component)
-            self.name = f'WithEvents({name})'
+            # self.name = f'WithEvents({name})'
             self.events = kwargs
             self.publisher = publisher
             self.listeners = {}
@@ -346,6 +359,8 @@ class Circle(Shape):
         pygame.draw.circle(self.context['screen'], self.color, rect.center, rect.width / 2)
         super().draw()
         return self
+
+
 
 
         

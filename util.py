@@ -7,13 +7,13 @@ from os import path
 current_directory = path.abspath(path.dirname(__file__))
 
 
-def get(path = '', dictionary = {}):
+def get(path="", dictionary={}):
     """
     . seperated lensing
     state.get('a.b.c') = state.__state['a']['b']['c']
     will retrun None if a key is encountered that doesn't exist
     """
-    keys = [key for key in path.split('.') if key]
+    keys = [key for key in path.split(".") if key]
     target = dictionary
     for key in keys:
         # this doesn't accomodate lists
@@ -24,8 +24,9 @@ def get(path = '', dictionary = {}):
             break
     return target
 
+
 def path_set(path, value, dictionary):
-    keys = [key for key in path.split('.') if key]
+    keys = [key for key in path.split(".") if key]
     if not (len(keys)):
         return
     target = dictionary
@@ -40,27 +41,27 @@ def path_set(path, value, dictionary):
 
 
 class AsyncRequestPool:
-    def __init__(self, host='http://127.0.0.1:5000'):
+    def __init__(self, host="http://127.0.0.1:5000"):
         self.executor = ThreadPoolExecutor()
         self.queue = []
         self.host = host
 
-    def __request(self, url, data, handler = lambda x: x):
+    def __request(self, url, data, handler=lambda x: x):
         try:
             response = requests.post(self.host + url, json=data)
             return {
-                'data': response.json(),
-                'url': url,
-                'handler': handler,
+                "data": response.json(),
+                "url": url,
+                "handler": handler,
             }
         except Exception as e:
             return {
-                'url': url,
-                'handler': handler,
-                'data': {'code': ResponseCodes.error, 'data': str(e)},
+                "url": url,
+                "handler": handler,
+                "data": {"code": ResponseCodes.error, "data": str(e)},
             }
 
-    def request(self, url, data, handler = lambda x: x):
+    def request(self, url, data, handler=lambda x: x):
         self.queue.append(self.executor.submit(self.__request, url, data, handler))
 
     def drain(self):
@@ -75,7 +76,7 @@ class AsyncRequestPool:
             self.queue = not_done
 
             for response in done:
-                response['handler'](response['data'])
+                response["handler"](response["data"])
 
             return done
 
@@ -85,4 +86,3 @@ class AsyncRequestPool:
 
     def shutdown(self):
         self.executor.shutdown()
-

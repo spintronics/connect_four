@@ -1,5 +1,6 @@
 from functools import partial
 
+
 def transpose(board):
     columns = [[] for _ in range(len(board[0]))]
     for row in board:
@@ -8,8 +9,10 @@ def transpose(board):
 
     return columns
 
+
 def flip(board):
     return [row[::-1] for row in board]
+
 
 def drop_piece(player, column, board):
     columns = transpose(board)
@@ -21,12 +24,15 @@ def drop_piece(player, column, board):
             break
     return transpose(flip(flipped))
 
+
 def pipe(*fns):
     def inner(value):
         for f in fns:
             value = f(value)
         return value
+
     return inner
+
 
 def test_drop_piece():
     start, end = [
@@ -45,7 +51,7 @@ def test_drop_piece():
             [0, 0, 0, 0, 0, 0, 0],
             [0, 0, 0, 0, 0, 0, 2],
             [0, 2, 1, 2, 1, 0, 1],
-        ]
+        ],
     ]
     result = pipe(
         partial(drop_piece, 1, 2),
@@ -56,10 +62,9 @@ def test_drop_piece():
         partial(drop_piece, 2, 6),
     )(start)
     if str(result) != str(end):
-        print(f'expected {end} to equal {result}')
+        print(f"expected {end} to equal {result}")
         return False
     return True
-    
 
 
 def horizontals(board, move):
@@ -127,7 +132,7 @@ def check_win(board):
     returns the winning player number or 0 if no winner
     """
     return False
-    
+
 
 def valid_move(player, column, board):
     """
@@ -138,9 +143,7 @@ def valid_move(player, column, board):
     return True
 
 
-tests = [
-    test_drop_piece
-]
+tests = [test_drop_piece]
 
 if __name__ == "__main__":
     fails = 0
@@ -148,6 +151,6 @@ if __name__ == "__main__":
         if not test():
             fails += 1
     if fails:
-        print(f'{fails} out of {len(tests)} failed')
+        print(f"{fails} out of {len(tests)} failed")
     else:
-        print('all tests passed')
+        print("all tests passed")

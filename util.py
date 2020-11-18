@@ -1,6 +1,10 @@
 import requests
 from concurrent.futures import ThreadPoolExecutor
 from server import ResponseCodes
+from os import path
+
+
+current_directory = path.abspath(path.dirname(__file__))
 
 
 def get(path = '', dictionary = {}):

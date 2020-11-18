@@ -3,6 +3,7 @@ from pygame.locals import *
 from os import path
 import math
 import util
+import json
 
 
 initialState = {
@@ -12,6 +13,8 @@ initialState = {
     }
 }
 
+
+  
 
 class Action:
     """
@@ -99,6 +102,15 @@ class State:
         self.publisher = publisher
         for action in actions:
             self.__actions[action.name] = action
+
+        # replay logged actions
+        if ('-r' in sys.argv):
+          self.log_file = open(path.join(util.current_directory, 'action_log.fancy'), 'r')
+          self.log_actions = False
+        else:
+          self.log_file = open(path.join(util.current_directory, 'action_log.fancy'), 'w')
+          self.log_file.truncate()
+          self.log_actions = True
     
     def get(self, path: str):
         return util.get(path, self.__state)
@@ -109,20 +121,30 @@ class State:
             return
         util.path_set(path, value, self.__state)
 
+    def replay_actions(self):
+      if not self.log_actions:
+        print('replay')
+        for action in self.log_file.readlines():
+          self.dispatch(*json.loads(action.strip()))
+
     def dispatch(self, name: str, data = {}):
         """
         dispatch a named action with the provided data, does nothing if the action does not exist
         listener triggers after the action is complete
         no support for async actions
         """
+        print(name, data)
         if name in self.__actions:
             action = self.__actions[name]
             new_state = action.apply(self.__state, data)
             if new_state == None: return
             # if new state is the same as the old state, do nothing (don't trigger update)
             # also if an action returns None, do nothing and dont check if anything has changed
-            if(action.scope and self.get(action.scope) == new_state): return
+            # if(action.scope and self.get(action.scope) == new_state): return
             self.__set(action.scope, new_state)
+            #save the action to log
+            if self.log_actions:
+              self.log_file.write(json.dumps([name, data]) + '\n')
             self.publisher.emit('change:state', {'scope': action.scope})
 
 

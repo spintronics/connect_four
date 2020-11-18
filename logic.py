@@ -1,9 +1,4 @@
 from functools import partial
-# {
-#     board: [[]],
-#     turn: 1,
-#     game_over: False
-# }
 
 def transpose(board):
     columns = [[] for _ in range(len(board[0]))]
@@ -132,12 +127,13 @@ def check_win(board):
     returns the winning player number or 0 if no winner
     """
     return False
-
+    
 
 def valid_move(player, column, board):
     """
     returns a boolean that indicates whether the given column is full
     or the move is outside the game board
+
     """
     return True
 

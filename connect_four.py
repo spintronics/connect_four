@@ -1,6 +1,5 @@
 import pygame, sys
 from pygame.locals import *
-from os import path
 from game import *
 from components import *
 import logic
@@ -10,9 +9,7 @@ import uuid
 import copy
 import ai
 
-current_directory = path.abspath(path.dirname(__file__))
-
-def asset_path(file): return path.join(current_directory, file)
+def asset_path(file): return path.join(util.current_directory, file)
 
 class Assets:
     #did realize i mispelled peice at some point, but we've come too far
@@ -84,6 +81,12 @@ class ConnectFourActions:
     """
     @classmethod
     def change_active_column(Self, state, column):
+        # returning none skips the redraw (nothing is changing)
+        if (
+          util.get('game.active_column', state) == column and
+          util.get('game.controls_focused', state) == False
+        ): return None
+      
         #fine because assigning a literal
         util.path_set('game.active_column', column, state)
         util.path_set('game.controls_focused', False, state)
@@ -114,6 +117,7 @@ class ConnectFourActions:
 
     @classmethod
     def focus_controls(Self, state, _):
+        if util.get('game.controls_focused', state): return None
         util.path_set('game.controls_focused', True, state)
         return state
 
@@ -135,7 +139,7 @@ class ConnectFourActions:
 
 
 class ConnectFour(Game):
-    def __init__(self, state, publisher, async_pool):
+    def __init__(self, state, publisher):
         super().__init__(state, publisher)
         self.refs = {
             'piece_grid': prop()
@@ -168,6 +172,8 @@ class ConnectFour(Game):
             ActionNames.set_game_mode,
             ConnectFourActions.set_game_mode
         )
+        
+        
 
         # if self.state.get('game.remote'):
         #     self.new_remote_game()
@@ -406,10 +412,11 @@ publisher = Publisher()
 #     Action(ActionNames.joined_game, ExternalActions.joined_game),
 #     Action(ActionNames.left_game, ExternalActions.left_game),
 # ]
-state = State(copy.deepcopy(initial_state), publisher)
+# async_pool = util.AsyncRequestPool()
 
-async_pool = util.AsyncRequestPool()
-game = ConnectFour(state, publisher, async_pool)
+state = State(copy.deepcopy(initial_state), publisher)
+game = ConnectFour(state, publisher)
+state.replay_actions()
 
 # async_pool.request(Routes.new_game, {'user_id': ConnectFourActions.user_id})
 

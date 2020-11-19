@@ -14,15 +14,15 @@ todo:
 
 - make a presentation that includes the libraries used and design approach
 
-Presentation:
+#Presentation
 
-# bottom up design approach
+## bottom up design approach
 
 - split up game logic, ui, state, and ai
 - test these units independently
 - merge them together and do integration testing
 
-# major game functionality
+## major game functionality
 
 - single source of truth state management
 - action based mutation of state
@@ -34,7 +34,7 @@ Presentation:
 - one of the tests tha the ai my pass is to win 100 out 100 games vs another ai that makes random moves
 - one of the features implemented to make ui testing easier was to write each action to a log file. If some error occurs during the program execution, we can replay the actions to get the program into the state in which it broke so we can debug.
 
-# typical game loop
+## typical game loop
 
 - initialize state and register action handlers
 - build the component tree with the appropriately bounded event handlers
@@ -43,7 +43,7 @@ Presentation:
 - if the state detects that the state is different after the action has run, a redraw is scheduled
 - the game loop consumes events every 20ms
 
-# libraries used
+## libraries used
 
-- pygame, flask, requests
+- pygame, black, flask, requests
 - all of the infastructure to enable remote play was implemented but not finalized due to insufficient testing

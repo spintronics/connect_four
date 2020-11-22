@@ -60,6 +60,7 @@ class ControlState:
 
 def prop(value=None):
     def access(new):
+        nonlocal value
         if new:
             value = new
         return value
@@ -104,7 +105,7 @@ class ConnectFourActions:
 
         board = util.get("game.board", state)
         player = util.get("game.player_turn", state)
-        if not logic.valid_move(board, column, player):
+        if not logic.valid_move(column, board):
             return None
         util.path_set("game.board", logic.drop_piece(player, column, board), state)
         util.path_set("game.player_turn", 1 if player == 2 else 2, state)
@@ -119,7 +120,9 @@ class ConnectFourActions:
             not util.get("game.2_player_game", state)
             and util.get("game.player_turn", state) == 2
         ):
-            move = ai.generate_move(new_board)
+            move = ai.generate_move(new_board, 2)
+            if move == -1:
+                return None
             Self.drop_piece(state, move)
 
         return state

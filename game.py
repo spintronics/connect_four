@@ -17,12 +17,12 @@ class Action:
     and replace it with the result
     """
 
-    def __init__(self, name: str, mutator, scope=""):
+    def __init__(self, name, mutator, scope=""):
         self.__mutator = mutator
         self.name = name
         self.scope = scope
 
-    def apply(self, state: object = {}, data={}):
+    def apply(self, state={}, data={}):
         return self.__mutator(state, data)
 
 
@@ -52,7 +52,7 @@ class Publisher:
     def __init__(self):
         self.__subscriptions = {"change:state": []}
 
-    def subscribe(self, name: str, handler=lambda x: x) -> Listener:
+    def subscribe(self, name, handler=lambda x: x):
         """
         subscribe to a named event, this could certainly be more robust with streams/hooks
         """
@@ -84,9 +84,7 @@ class Publisher:
 
 
 class State:
-    def __init__(
-        self, initialState=initialState, publisher: Publisher = {}, actions={}
-    ):
+    def __init__(self, initialState=initialState, publisher={}, actions={}):
         self.__state = initialState
         self.__actions = {}
         self.publisher = publisher
@@ -106,10 +104,10 @@ class State:
             self.log_file.truncate()
             self.log_actions = True
 
-    def get(self, path: str):
+    def get(self, path):
         return util.get(path, self.__state)
 
-    def __set(self, path: str, value):
+    def __set(self, path, value):
         if path == "":
             self.__state = value
             return
@@ -121,7 +119,7 @@ class State:
             for action in self.log_file.readlines():
                 self.dispatch(*json.loads(action.strip()))
 
-    def dispatch(self, name: str, data={}):
+    def dispatch(self, name, data={}):
         """
         dispatch a named action with the provided data, does nothing if the action does not exist
         listener triggers after the action is complete
@@ -163,7 +161,7 @@ class Game:
     base class to interface with pygame and manage the game lifecycle
     """
 
-    def __init__(self, state: State, publisher: Publisher):
+    def __init__(self, state, publisher):
         self.state = state
         pygame.init()
         window = state.get("window")

@@ -7,8 +7,8 @@ name = "pypi"
 flask = "*"
 pygame = "*"
 requests = "*"
-tensorflow = "*"
 black = "*"
+numpy = "*"
 
 [dev-packages]
 pylint = "*"

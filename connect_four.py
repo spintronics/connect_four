@@ -4,7 +4,8 @@ from game import *
 from components import *
 import logic
 import util
-from server import ResponseCodes, Routes
+
+# from server import ResponseCodes, Routes
 import uuid
 import copy
 import ai

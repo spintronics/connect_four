@@ -149,10 +149,10 @@ def check_verticals(board):
             row_nums = []
 
         column += 1  # increment column counter so proper column number of winner can be identified
-        # if there is no winner, then only return winner = 0
-        if winner == 0:
-            column = 0
-            return winner
+    # if there is no winner, then only return winner = 0
+    if winner == 0:
+        column = 0
+        return winner
     # if there is a winner, return the winner, column, and the row nums so winner can be identified on the board
     return winner, column, row_nums
 
@@ -160,6 +160,21 @@ def check_verticals(board):
 def check_diagonals(board):
     """function takes in board as a parameter and checks to see if there is a diagonal winner"""
     # convert inputted board into a numpy array with data type string
+
+    # board = [
+    #     [0,  1,  2,  3,  4,  5,  6 ],
+    #     [7,  8,  9,  10, 11, 12, 13],
+    #     [14, 15, 16, 17, 18, 19, 20],
+    #     [21, 22, 23, 24, 25, 26, 27],
+    #     [28, 29, 30, 31, 32, 33, 34],
+    #     [35, 36, 37, 38, 39, 40, 41],
+    # ]
+
+    # for y, row in enumerate(board):
+    #     coordinates.append([])
+    #     for x, column in enumerate(row):
+    #         coordinates[-1].append((x, y, column))
+
     board = np.array(board, dtype=str)
 
     # -create first 6 diagonals from board by using numpy diagonal function with the diagonal number as second argunment

@@ -9,6 +9,8 @@ git clone https://github.com/spintronics/connect_four
 
 python connect_four.py
 
+![](sample.gif)
+
 ## bottom up design approach
 
 - split up game logic, ui, state, and ai

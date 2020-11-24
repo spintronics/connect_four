@@ -93,10 +93,14 @@ class State:
 
         # replay logged actions
         if "-r" in sys.argv:
-            self.log_file = open(
-                path.join(util.current_directory, "action_log.fancy"), "r"
-            )
-            self.log_actions = False
+            try:
+                self.log_file = open(
+                    path.join(util.current_directory, "action_log.fancy"), "r"
+                )
+            except:
+                print("issue opening file")
+            finally:
+                self.log_actions = False
         else:
             self.log_file = open(
                 path.join(util.current_directory, "action_log.fancy"), "w"
@@ -125,7 +129,7 @@ class State:
         listener triggers after the action is complete
         no support for async actions
         """
-        print(name, data)
+        # print(name, data)
         if name in self.__actions:
             action = self.__actions[name]
             new_state = action.apply(self.__state, data)

@@ -255,8 +255,9 @@ def with_events(component, publisher={}, **kwargs):
             return listener
 
         def get_rect(self) -> pygame.Rect:
+            child = self.children[0]
             return pygame.Rect(
-                self.position[0], self.position[1], self.width, self.height
+                child.position[0], child.position[1], child.width, child.height
             )
 
     return WithEvents(component, publisher, **kwargs)

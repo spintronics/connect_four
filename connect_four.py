@@ -3,6 +3,7 @@ from pygame.locals import *
 from game import *
 from components import *
 import logic
+from logic import valid_move
 import util
 
 # from server import ResponseCodes, Routes
@@ -21,6 +22,9 @@ class Assets:
     new_game_button = asset_path("assets\\new_game_button.png")
     computer_button = asset_path("assets\\computer_button.png")
     two_player_button = asset_path("assets\\2_player_button.png")
+    player_1_win = asset_path("assets\\1_winner.png")
+    player_2_win = asset_path("assets\\2_winner.png")
+    tie_game = asset_path("assets\\tie_game.png")
 
 
 initial_state = {
@@ -113,8 +117,9 @@ class ConnectFourActions:
 
         new_board = util.get("game.board", state)
         winner = logic.check_win(new_board)
-        if winner:
-            util.path_set("game.winner", winner, state)
+        valid_moves = logic.valid_moves(new_board)
+        if winner or not len(valid_moves):
+            util.path_set("game.winner", winner[0] if winner else 3, state)
             util.path_set("game.game_started", False, state)
 
         if (
@@ -130,8 +135,8 @@ class ConnectFourActions:
 
     @classmethod
     def focus_controls(Self, state, _):
-        if util.get("game.controls_focused", state):
-            return None
+        # if util.get("game.controls_focused", state):
+        #     return None
         util.path_set("game.controls_focused", True, state)
         return state
 
@@ -141,6 +146,7 @@ class ConnectFourActions:
         util.path_set("game.player_turn", 1, state)
         util.path_set("game.controls_state", 1, state)
         util.path_set("game.game_started", False, state)
+        util.path_set("game.winner", 0, state)
 
         return state
 
@@ -314,6 +320,8 @@ class ConnectFour(Game):
         )
 
     def game_controls(self):
+        # if not self.state.get("game.controls_focused"):
+        #     return None
         controls_state = self.state.get("game.controls_state")
 
         buttons = [
@@ -354,6 +362,15 @@ class ConnectFour(Game):
         self.publisher.purge([pygame.MOUSEMOTION, pygame.MOUSEBUTTONUP])
         window = self.state.get("window")
 
+        winner = self.state.get("game.winner")
+
+        winner_message = [
+            None,
+            Image(Assets.player_1_win, centered=True),
+            Image(Assets.player_2_win, centered=True),
+            Image(Assets.tie_game, centered=True),
+        ]
+
         component_tree = (
             ContextProvider(
                 context={"screen": self.screen, "position": [0, 0]},
@@ -369,6 +386,7 @@ class ConnectFour(Game):
                                 color=self.state.get("background_color"),
                                 children=[
                                     self.game_controls(),
+                                    winner_message[winner],
                                     self.next_piece(),
                                 ],
                             ),
@@ -450,7 +468,10 @@ game.draw()
 #             state.dispatch(ActionNames.update_board, util.get('data', response))
 
 
-while game.running:
-    # handle_responses(async_pool.drain())
-    game.consume_events()
-    pygame.time.wait(20)
+try:
+    while game.running:
+        # handle_responses(async_pool.drain())
+        game.consume_events()
+        pygame.time.wait(20)
+except:
+    print("something broke")

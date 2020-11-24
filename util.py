@@ -1,6 +1,7 @@
 import requests
 from concurrent.futures import ThreadPoolExecutor
-from server import ResponseCodes
+
+# from server import ResponseCodes
 from os import path
 
 
@@ -40,49 +41,49 @@ def path_set(path, value, dictionary):
         target[keys[-1]] = value
 
 
-class AsyncRequestPool:
-    def __init__(self, host="http://127.0.0.1:5000"):
-        self.executor = ThreadPoolExecutor()
-        self.queue = []
-        self.host = host
+# class AsyncRequestPool:
+#     def __init__(self, host="http://127.0.0.1:5000"):
+#         self.executor = ThreadPoolExecutor()
+#         self.queue = []
+#         self.host = host
 
-    def __request(self, url, data, handler=lambda x: x):
-        try:
-            response = requests.post(self.host + url, json=data)
-            return {
-                "data": response.json(),
-                "url": url,
-                "handler": handler,
-            }
-        except Exception as e:
-            return {
-                "url": url,
-                "handler": handler,
-                "data": {"code": ResponseCodes.error, "data": str(e)},
-            }
+#     def __request(self, url, data, handler=lambda x: x):
+#         try:
+#             response = requests.post(self.host + url, json=data)
+#             return {
+#                 "data": response.json(),
+#                 "url": url,
+#                 "handler": handler,
+#             }
+#         except Exception as e:
+#             return {
+#                 "url": url,
+#                 "handler": handler,
+#                 "data": {"code": ResponseCodes.error, "data": str(e)},
+#             }
 
-    def request(self, url, data, handler=lambda x: x):
-        self.queue.append(self.executor.submit(self.__request, url, data, handler))
+#     def request(self, url, data, handler=lambda x: x):
+#         self.queue.append(self.executor.submit(self.__request, url, data, handler))
 
-    def drain(self):
-        try:
-            done = []
-            not_done = []
-            for request in self.queue:
-                if request.done():
-                    done.append(request.result())
-                else:
-                    not_done.append(request)
-            self.queue = not_done
+#     def drain(self):
+#         try:
+#             done = []
+#             not_done = []
+#             for request in self.queue:
+#                 if request.done():
+#                     done.append(request.result())
+#                 else:
+#                     not_done.append(request)
+#             self.queue = not_done
 
-            for response in done:
-                response["handler"](response["data"])
+#             for response in done:
+#                 response["handler"](response["data"])
 
-            return done
+#             return done
 
-        except Exception as e:
-            print(e)
-            return []
+#         except Exception as e:
+#             print(e)
+#             return []
 
-    def shutdown(self):
-        self.executor.shutdown()
+#     def shutdown(self):
+#         self.executor.shutdown()

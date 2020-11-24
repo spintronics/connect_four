@@ -1,20 +1,13 @@
 Requirements
-- python 3.9
+
+- python ~ 3.8 (tested in 3.9)
 - pygame
+- numpy
 - the path names are for windows (not normalized)
 
 git clone https://github.com/spintronics/connect_four
 
 python connect_four.py
-
-todo:
-- move more stuff to logic so that it can be shared between the client and server
-- get a request handler for the client and make the state support async actions
-
-
-- make a presentation that includes the libraries used and design approach
-
-#Presentation
 
 ## bottom up design approach
 
@@ -40,7 +33,7 @@ todo:
 - build the component tree with the appropriately bounded event handlers
 - an event such as a button click fires the bound action
 - the action changes the state it a predictable way (immutably)
-- if the state detects that the state is different after the action has run, a redraw is scheduled
+- if the new state is different, a redraw is scheduled
 - the game loop consumes events every 20ms
 
 ## libraries used

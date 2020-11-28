@@ -1,11 +1,8 @@
 import logic
 import random
+from util import cache_function
 
-"""
-Created on Fri Nov 20 02:24:44 2020
 
-@author: Nicholas Mann
-"""
 empty_board = [
     [0, 0, 0, 0, 0, 0, 0],
     [0, 0, 0, 0, 0, 0, 0],
@@ -16,51 +13,91 @@ empty_board = [
 ]
 
 
-def generate_move(board, player):
+def ai(ai_player=1, max_depth=2):
+    opponent = 1 if ai_player == 2 else 2
 
-    """
-    this function returns a position(move)
-    """
+    def non_recursive(board, depth=0, recurse=False, strength=0):
+        return not recurse
 
-    # valid_moves(board) -> [position]
-    # drop_piece(board, position, player) -> board
-    # check_win(board, player) -> True/False
-    #
+    @cache_function(lambda moves: moves[:], predicate=non_recursive)
+    def _generate_moves(board, depth=0, recurse=False, strength=0):
 
-    positions = logic.valid_moves(board)
-    opponent = 1 if player == 2 else 2
+        if depth > max_depth and recurse:
+            return strength
 
-    if not len(positions):
-        return -1
+        valid_next_moves = logic.valid_moves(board)
 
-    good_moves = []
+        if len(valid_next_moves) == 0:
+            if recurse:
+                return strength
+            return []
 
-    for position in positions:
-        new_board = logic.drop_piece(player, position, board)
-        # if theres a move that would win, make it
-        winner = logic.check_win(new_board)
-        if winner and winner[0] == player:
-            return position
+        # collect each board state after valid ai moves
+        next_board_states = [
+            (position, logic.drop_piece(opponent, position, board))
+            for position in valid_next_moves
+        ]
 
-        oponent_will_win = False
-        next_positions = logic.valid_moves(new_board)
+        reasonable_moves = []
 
-        # if the opponent would win on the following turn,
-        # this position is not a good move
-        for next_position in next_positions:
-            next_board = logic.drop_piece(opponent, next_position, new_board)
-            winner = logic.check_win(next_board)
-            if winner and winner[0] == opponent:
-                oponent_will_win = True
-                break
+        for position, board in next_board_states:
+            # check for next turn win
+            if logic.check_win(board) == ai_player:
+                if recurse:
+                    strength += 1
+                    continue
 
-        if not oponent_will_win:
-            good_moves.append(position)
+                return [position]
 
-    if not len(good_moves):
-        return random.choice(positions)
+            # otherwise check all valid opponent moves
+            valid_opponent_moves = logic.valid_moves(board)
+            # gather boards
+            opponent_boards = [
+                logic.drop_piece(opponent, opponent_move, board)
+                for opponent_move in valid_opponent_moves
+            ]
 
-    return random.choice(good_moves)
+            # if any are wins for opponent, skip this position
+            if any(
+                [
+                    True
+                    for board in opponent_boards
+                    if logic.check_win(board) == opponent
+                ]
+            ):
+                if recurse:
+                    strength -= 1
+                continue
+
+            next_moves_strengths = [
+                _generate_moves(board, depth + 1, True, strength)
+                for board in opponent_boards
+            ]
+
+            if recurse:
+                return sum(next_moves_strengths)
+
+            reasonable_moves.append((position, sum(next_moves_strengths)))
+
+        if recurse:
+            return strength
+
+        # return list of reasonable moves, sorted by strength
+        print(reasonable_moves)
+        return [
+            move[0]
+            for move in sorted(reasonable_moves, key=lambda pair: pair[1], reverse=True)
+        ]
+
+    def generate_move(board):
+        moves = _generate_moves(board)
+
+        if not len(moves):
+            return -1
+
+        return moves[0]
+
+    return generate_move
 
 
 def generate_random_move(board):
@@ -71,11 +108,14 @@ def generate_random_move(board):
     return random.choice(positions)
 
 
+generate_move = ai()
+
+
 def better_than_random():
     ai_wins = 0
     random_wins = 0
     turn = 1
-    games = 100
+    games = 5
     tie = 0
     while ai_wins + random_wins < games:
 
@@ -83,14 +123,14 @@ def better_than_random():
         while True:
             winner = logic.check_win(board)
             if winner:
-                if winner[0] == 1:
+                if winner == 1:
                     ai_wins += 1
                 else:
                     random_wins += 1
                 break
 
             next_move = (
-                generate_move(board, 1) if turn == 1 else generate_random_move(board)
+                generate_move(board) if turn == 1 else generate_random_move(board)
             )
             if next_move == -1:
                 tie += 1

@@ -119,14 +119,14 @@ class ConnectFourActions:
         winner = logic.check_win(new_board)
         valid_moves = logic.valid_moves(new_board)
         if winner or not len(valid_moves):
-            util.path_set("game.winner", winner[0] if winner else 3, state)
+            util.path_set("game.winner", winner if winner else 3, state)
             util.path_set("game.game_started", False, state)
 
         if (
             not util.get("game.2_player_game", state)
             and util.get("game.player_turn", state) == 2
         ):
-            move = ai.generate_move(new_board, 2)
+            move = ai.generate_move(new_board)
             if move == -1:
                 return None
             Self.drop_piece(state, move)
@@ -468,10 +468,7 @@ game.draw()
 #             state.dispatch(ActionNames.update_board, util.get('data', response))
 
 
-try:
-    while game.running:
-        # handle_responses(async_pool.drain())
-        game.consume_events()
-        pygame.time.wait(20)
-except:
-    print("something broke")
+while game.running:
+    # handle_responses(async_pool.drain())
+    game.consume_events()
+    pygame.time.wait(20)

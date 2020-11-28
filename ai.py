@@ -1,6 +1,7 @@
 import logic
 import random
 from util import cache_function
+from math import inf
 
 
 empty_board = [
@@ -13,7 +14,7 @@ empty_board = [
 ]
 
 
-def ai(ai_player=1, max_depth=2):
+def ai(ai_player=2, max_depth=2):
     opponent = 1 if ai_player == 2 else 2
 
     def non_recursive(board, depth=0, recurse=False, strength=0):
@@ -34,7 +35,7 @@ def ai(ai_player=1, max_depth=2):
 
         # collect each board state after valid ai moves
         next_board_states = [
-            (position, logic.drop_piece(opponent, position, board))
+            (position, logic.drop_piece(ai_player, position, board))
             for position in valid_next_moves
         ]
 
@@ -57,16 +58,22 @@ def ai(ai_player=1, max_depth=2):
                 for opponent_move in valid_opponent_moves
             ]
 
+            # if any(
+            #     [
+            #         True
+            #         for board in opponent_boards
+            #         if logic.check_win(board) == opponent
+            #     ]
+            # ):
+            opponent_will_win = False
+            for board in opponent_boards:
+                if logic.check_win(board) == opponent:
+                    opponent_will_win = True
+                    break
+
             # if any are wins for opponent, skip this position
-            if any(
-                [
-                    True
-                    for board in opponent_boards
-                    if logic.check_win(board) == opponent
-                ]
-            ):
-                if recurse:
-                    strength -= 1
+            if opponent_will_win:
+                strength -= 1
                 continue
 
             next_moves_strengths = [
@@ -84,6 +91,10 @@ def ai(ai_player=1, max_depth=2):
 
         # return list of reasonable moves, sorted by strength
         print(reasonable_moves)
+
+        if not len(reasonable_moves):
+            return valid_next_moves
+
         return [
             move[0]
             for move in sorted(reasonable_moves, key=lambda pair: pair[1], reverse=True)
@@ -95,7 +106,11 @@ def ai(ai_player=1, max_depth=2):
         if not len(moves):
             return -1
 
-        return moves[0]
+        # cut off bottom half of moves and select randomly from remaining
+        # to add some variety
+        if len(moves) == 1:
+            return moves[0]
+        return random.choice(moves[: len(moves) // 2])
 
     return generate_move
 
@@ -148,6 +163,6 @@ def better_than_random():
 tests = [better_than_random]
 
 
-# if __name__ == "__main__":
-#     for test in tests:
-#         test()
+if __name__ == "__main__":
+    for test in tests:
+        test()
